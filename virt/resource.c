@@ -97,6 +97,11 @@ int parse_vm_info_of(struct device_node *node, struct vmtag *vmtag)
 	of_get_u32_array(node, "vcpu_affinity",
 			vmtag->vcpu_affinity, vmtag->nr_vcpu);
 	of_get_u64_array(node, "setup_data", (uint64_t *)&vmtag->setup_data, 1);
+	of_get_u64_array(node, "load-address", &vmtag->load_address, 1);
+	of_get_string(node, "image-file", vmtag->image_file,
+		      ARRAY_SIZE(vmtag->image_file));
+	of_get_string(node, "dtb-file", vmtag->dtb_file,
+		      ARRAY_SIZE(vmtag->image_file));
 
 	if (of_get_bool(node, "vm_32bit"))
 		vmtag->flags &= ~VM_FLAGS_64BIT;
@@ -162,7 +167,7 @@ static int create_pdev_virq_of(struct vm *vm, struct device_node *node)
 		return 0;
 
 	val = (of32_t *)of_getprop(node, "interrupts", &len);
-	if (!val || (len < 4))
+	if (!val || (len < sizeof(of32_t)))
 		return 0;
 
 	/* get the irq count for the device */
@@ -170,12 +175,13 @@ static int create_pdev_virq_of(struct vm *vm, struct device_node *node)
 	if (nr_icells == 0)
 		return 0;
 
-	len = len / 4;
+	len = len / sizeof(of32_t);
 	if (vm_is_native(vm))
 		hw = 1;
 	else {
 		virq_affinity = (of32_t *)of_getprop(node, "virq_affinity", &len_aff);
-		if (virq_affinity && (len_aff == len))
+		if (virq_affinity &&
+		    (len_aff / sizeof(of32_t) == len / nr_icells))
 			hw = 1;
 	}
 
